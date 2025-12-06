@@ -1,4 +1,4 @@
-// components/SubdomainForm.js - Subdomain request form component (requires auth)
+// components/SubdomainForm.js - Subdomain request form component (with sessionStorage support)
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { auth } from '../lib/firebase';
@@ -18,14 +18,34 @@ export default function SubdomainForm() {
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
   const [authToken, setAuthToken] = useState(null);
+  const [user, setUser] = useState(null);
   
   const parentDomain = process.env.NEXT_PUBLIC_PARENT_DOMAIN || 'example.com';
   
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
       if (user) {
+        setUser(user);
         const token = await user.getIdToken();
         setAuthToken(token);
+        
+        // Check if there's pending subdomain data from sessionStorage
+        const pendingData = sessionStorage.getItem('pendingSubdomain');
+        if (pendingData) {
+          try {
+            const data = JSON.parse(pendingData);
+            setFormData(data);
+            sessionStorage.removeItem('pendingSubdomain');
+            // Auto-submit after a brief moment
+            setTimeout(() => {
+              document.getElementById('subdomain-form')?.requestSubmit();
+            }, 500);
+          } catch (err) {
+            console.error('Failed to parse pending subdomain data:', err);
+          }
+        }
+      } else {
+        setUser(null);
       }
     });
     
@@ -34,6 +54,8 @@ export default function SubdomainForm() {
   
   // Debounced availability check
   useEffect(() => {
+    console.log('Availability check triggered. Subdomain:', formData.subdomainName, 'Length:', formData.subdomainName.length);
+    
     if (!formData.subdomainName || formData.subdomainName.length < 3) {
       setAvailability(null);
       return;
@@ -41,9 +63,18 @@ export default function SubdomainForm() {
     
     const timer = setTimeout(async () => {
       setChecking(true);
+      console.log('Checking availability for:', formData.subdomainName);
+      
       try {
-        const res = await fetch(`/api/subdomains/check?name=${encodeURIComponent(formData.subdomainName)}`);
+        const url = `/api/subdomains/check?name=${encodeURIComponent(formData.subdomainName)}`;
+        console.log('Fetching:', url);
+        
+        const res = await fetch(url);
+        console.log('Response status:', res.status);
+        
         const data = await res.json();
+        console.log('Response data:', data);
+        
         setAvailability(data);
       } catch (err) {
         console.error('Availability check failed:', err);
@@ -58,7 +89,9 @@ export default function SubdomainForm() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!authToken) {
+    // If not logged in, save to sessionStorage and redirect
+    if (!user) {
+      sessionStorage.setItem('pendingSubdomain', JSON.stringify(formData));
       router.push('/login');
       return;
     }
@@ -105,12 +138,14 @@ export default function SubdomainForm() {
   
   return (
     <div className={`${styles.formCard} glass`}>
-      <h2 className={styles.formTitle}>Create Your Subdomain</h2>
+      <h2 className={styles.formTitle}>
+        {user ? 'Create Your Subdomain' : 'Try It Now'}
+      </h2>
       <p style={{ color: 'var(--text-muted)', textAlign: 'center', marginBottom: '1.5rem', fontSize: '0.875rem' }}>
-        Your subdomain will be activated instantly!
+        {user ? 'Your subdomain will be activated instantly!' : 'Sign in to create your subdomain instantly'}
       </p>
       
-      <form onSubmit={handleSubmit}>
+      <form id="subdomain-form" onSubmit={handleSubmit}>
         <div className={styles.inputGroup}>
           <label className="form-label">Subdomain Name</label>
           <div className={styles.inputWrapper}>
@@ -127,6 +162,11 @@ export default function SubdomainForm() {
             />
             <span className={styles.inputPrefix}>.{parentDomain}</span>
           </div>
+          {formData.subdomainName && formData.subdomainName.length < 3 && (
+            <div className={styles.availabilityMessage} style={{ color: 'var(--text-muted)' }}>
+              ℹ️ Minimum 3 characters required
+            </div>
+          )}
           {checking && (
             <div className={`${styles.availabilityMessage} ${styles.availabilityAvailable}`}>
               Checking...
@@ -176,10 +216,10 @@ export default function SubdomainForm() {
         <button
           type="submit"
           className={styles.submitButton}
-          disabled={loading || !availability?.available}
+          disabled={loading || (user && !availability?.available)}
         >
           {loading && <div className="spinner"></div>}
-          {loading ? 'Creating...' : 'Create Subdomain'}
+          {loading ? 'Creating...' : user ? 'Create Subdomain' : 'Sign In to Create →'}
         </button>
         
         {success && (

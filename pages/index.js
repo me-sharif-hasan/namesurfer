@@ -31,10 +31,15 @@ export default function Home() {
       <main className={styles.hero}>
         <div className={styles.heroBackground}></div>
         
-        <div className="container">
-          <div className={styles.heroContent}>
-            {/* Navigation */}
-            <div style={{ position: 'absolute', top: '2rem', right: '2rem', display: 'flex', gap: '1rem' }}>
+        {/* Fixed Navigation */}
+        <nav className={styles.navbar}>
+          <div className={styles.navContainer}>
+            <div className={styles.navBrand}>
+              <span className="gradient-text" style={{ fontSize: '1.25rem', fontWeight: '700' }}>
+                OpenSubdomain
+              </span>
+            </div>
+            <div className={styles.navLinks}>
               {user ? (
                 <>
                   <a href="/dashboard" className="btn btn-secondary">
@@ -56,7 +61,11 @@ export default function Home() {
                 </a>
               )}
             </div>
-            
+          </div>
+        </nav>
+        
+        <div className="container">
+          <div className={styles.heroContent}>
             <h1 className={styles.heroTitle}>
               Get Your Free <span className="gradient-text">Subdomain</span> in Seconds
             </h1>
@@ -65,32 +74,10 @@ export default function Home() {
               Instant activation, automatic DNS setup, completely free.
             </p>
             
-            {/* Strong CTA */}
-            {!user && (
-              <div style={{ marginBottom: '2rem' }}>
-                <a 
-                  href="/login" 
-                  className="btn btn-primary" 
-                  style={{ 
-                    fontSize: '1.25rem', 
-                    padding: '1rem 3rem',
-                    display: 'inline-block'
-                  }}
-                >
-                  Get Started Free →
-                </a>
-                <p style={{ marginTop: '0.75rem', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-                  No credit card required • Instant setup
-                </p>
-              </div>
-            )}
-            
-            {/* Subdomain Request Form (for logged-in users) */}
-            {user && (
-              <div id="request-form">
-                <SubdomainForm />
-              </div>
-            )}
+            {/* Always show form - will handle auth internally */}
+            <div id="request-form">
+              <SubdomainForm />
+            </div>
             
             {/* Features */}
             <div className={styles.features}>

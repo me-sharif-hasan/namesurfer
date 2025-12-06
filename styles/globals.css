@@ -140,6 +140,13 @@ input, textarea, select {
   align-items: center;
   gap: var(--spacing-sm);
   transition: all 0.2s ease;
+  cursor: pointer;
+  border: none;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .btn-primary {
@@ -147,9 +154,10 @@ input, textarea, select {
   color: white;
 }
 
-.btn-primary:hover {
+.btn-primary:hover:not(:disabled) {
   transform: translateY(-2px);
   box-shadow: 0 10px 20px rgba(99, 102, 241, 0.3);
+  background: linear-gradient(135deg, var(--primary-light), var(--primary));
 }
 
 .btn-secondary {
@@ -158,8 +166,10 @@ input, textarea, select {
   color: var(--text-primary);
 }
 
-.btn-secondary:hover {
-  background: rgba(255, 255, 255, 0.1);
+.btn-secondary:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: white;
 }
 
 .btn-success {
@@ -167,9 +177,19 @@ input, textarea, select {
   color: white;
 }
 
+.btn-success:hover:not(:disabled) {
+  background: #0ea673;
+  transform: translateY(-1px);
+}
+
 .btn-danger {
   background: var(--error);
   color: white;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: #dc2626;
+  transform: translateY(-1px);
 }
 
 /* Form styles */

@@ -119,6 +119,17 @@
   font-size: 0.875rem;
   font-weight: 500;
   transition: all 0.2s ease;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  justify-content: center;
+  min-width: 80px;
+}
+
+.actionButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .approveButton {
@@ -127,8 +138,10 @@
   border: 1px solid rgba(16, 185, 129, 0.3);
 }
 
-.approveButton:hover {
-  background: rgba(16, 185, 129, 0.3);
+.approveButton:hover:not(:disabled) {
+  background: rgba(16, 185, 129, 0.4);
+  color: white;
+  border-color: var(--success);
 }
 
 .rejectButton {
@@ -137,8 +150,10 @@
   border: 1px solid rgba(239, 68, 68, 0.3);
 }
 
-.rejectButton:hover {
-  background: rgba(239, 68, 68, 0.3);
+.rejectButton:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.4);
+  color: white;
+  border-color: var(--error);
 }
 
 .deleteButton {
@@ -147,8 +162,10 @@
   border: 1px solid rgba(239, 68, 68, 0.2);
 }
 
-.deleteButton:hover {
-  background: rgba(239, 68, 68, 0.2);
+.deleteButton:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.3);
+  color: white;
+  border-color: var(--error);
 }
 
 .dnsStatus {

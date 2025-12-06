@@ -14,6 +14,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState(null);
   const [editTarget, setEditTarget] = useState('');
+  const [actionLoading, setActionLoading] = useState({});
   
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
@@ -58,6 +59,7 @@ export default function Dashboard() {
   const handleUpdate = async (id, currentTarget) => {
     if (editingId === id) {
       // Save
+      setActionLoading({ ...actionLoading, [id]: 'edit' });
       try {
         const res = await fetch(`/api/subdomains/${id}`, {
           method: 'PATCH',
@@ -79,6 +81,8 @@ export default function Dashboard() {
       } catch (err) {
         alert('Failed to update subdomain');
         console.error(err);
+      } finally {
+        setActionLoading({ ...actionLoading, [id]: null });
       }
     } else {
       // Start editing
@@ -92,6 +96,7 @@ export default function Dashboard() {
       return;
     }
     
+    setActionLoading({ ...actionLoading, [id]: 'delete' });
     try {
       const res = await fetch(`/api/subdomains/${id}`, {
         method: 'DELETE',
@@ -109,6 +114,8 @@ export default function Dashboard() {
     } catch (err) {
       alert('Failed to delete subdomain');
       console.error(err);
+    } finally {
+      setActionLoading({ ...actionLoading, [id]: null });
     }
   };
   
@@ -126,6 +133,8 @@ export default function Dashboard() {
   }
   
   const isAdmin = user.email === 'me.sharif.hasan@gmail.com';
+  const maxSubdomains = 10; // This should match MAX_SUBDOMAINS_PER_USER env var
+  const currentCount = subdomains.length;
   
   return (
     <>
@@ -135,10 +144,17 @@ export default function Dashboard() {
       
       <div className={`${styles.container} container`}>
         <div className={styles.header}>
-          <h1 className={styles.title}>
-            My <span className="gradient-text">Subdomains</span>
-            {isAdmin && <span style={{ color: 'var(--warning)', fontSize: '0.875rem', marginLeft: '1rem' }}>ADMIN</span>}
-          </h1>
+          <div>
+            <h1 className={styles.title}>
+              My <span className="gradient-text">Subdomains</span>
+              {isAdmin && <span style={{ color: 'var(--warning)', fontSize: '0.875rem', marginLeft: '1rem' }}>ADMIN</span>}
+            </h1>
+            {!isAdmin && (
+              <p style={{ color: 'var(--text-muted)', marginTop: '0.5rem', fontSize: '0.875rem' }}>
+                Using {currentCount} of {maxSubdomains} subdomains
+              </p>
+            )}
+          </div>
           <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
             <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>
               {user.email}
@@ -225,8 +241,13 @@ export default function Dashboard() {
                         <button
                           className={`${styles.actionButton} ${editingId === sub.id ? styles.approveButton : styles.filterButton}`}
                           onClick={() => handleUpdate(sub.id, sub.targetUrl)}
+                          disabled={actionLoading[sub.id]}
                         >
-                          {editingId === sub.id ? 'Save' : 'Edit'}
+                          {actionLoading[sub.id] === 'edit' ? (
+                            <div className="spinner" style={{ width: '14px', height: '14px' }}></div>
+                          ) : (
+                            editingId === sub.id ? 'Save' : 'Edit'
+                          )}
                         </button>
                         {editingId === sub.id && (
                           <button
@@ -235,6 +256,7 @@ export default function Dashboard() {
                               setEditingId(null);
                               setEditTarget('');
                             }}
+                            disabled={actionLoading[sub.id]}
                           >
                             Cancel
                           </button>
@@ -242,8 +264,13 @@ export default function Dashboard() {
                         <button
                           className={`${styles.actionButton} ${styles.deleteButton}`}
                           onClick={() => handleDelete(sub.id)}
+                          disabled={actionLoading[sub.id]}
                         >
-                          Delete
+                          {actionLoading[sub.id] === 'delete' ? (
+                            <div className="spinner" style={{ width: '14px', height: '14px' }}></div>
+                          ) : (
+                            'Delete'
+                          )}
                         </button>
                       </div>
                     </td>

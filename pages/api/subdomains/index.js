@@ -92,6 +92,24 @@ async function handlePost(req, res, startTime) {
         return res.status(429).json({ error: 'Too many requests. Please try again later.' });
       }
       
+      // Check subdomain count limit (admin has no limit)
+      if (!user.isAdmin) {
+        const maxSubdomains = parseInt(process.env.MAX_SUBDOMAINS_PER_USER || '10', 10);
+        const userSubdomainsSnapshot = await adminDb.collection('subdomains')
+          .where('userId', '==', user.uid)
+          .count()
+          .get();
+        
+        const currentCount = userSubdomainsSnapshot.data().count;
+        
+        if (currentCount >= maxSubdomains) {
+          logAPI(req.method, '/api/subdomains', 403, Date.now() - startTime, user.email);
+          return res.status(403).json({ 
+            error: `Subdomain limit reached. You can create up to ${maxSubdomains} subdomains. Delete some to create new ones.` 
+          });
+        }
+      }
+      
       const { subdomainName, targetUrl, recordType = 'A' } = req.body;
       
       logInfo(`Subdomain request from ${user.email}: ${subdomainName}`);
