@@ -142,11 +142,13 @@ input, textarea, select {
   transition: all 0.2s ease;
   cursor: pointer;
   border: none;
+  color: white; /* Always white */
 }
 
 .btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+  color: rgba(255, 255, 255, 0.6); /* Faded white when disabled */
 }
 
 .btn-primary {
@@ -163,7 +165,7 @@ input, textarea, select {
 .btn-secondary {
   background: var(--glass-bg);
   border: 1px solid var(--glass-border);
-  color: var(--text-primary);
+  color: white;
 }
 
 .btn-secondary:hover:not(:disabled) {

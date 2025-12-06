@@ -188,9 +188,14 @@ export default function SubdomainForm() {
             value={formData.recordType}
             onChange={(e) => setFormData({ ...formData, recordType: e.target.value })}
           >
-            <option value="A">A Record (IP Address)</option>
-            <option value="CNAME">CNAME (Domain)</option>
+            <option value="A">A Record - Point to an IP address</option>
+            <option value="CNAME">CNAME - Point to another domain</option>
           </select>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '0.5rem' }}>
+            {formData.recordType === 'A' 
+              ? '💡 Use A record to point your subdomain directly to an IP address (e.g., your server)'
+              : '💡 Use CNAME to redirect your subdomain to another domain (e.g., example.com)'}
+          </p>
         </div>
         
         <div className={styles.inputGroup}>

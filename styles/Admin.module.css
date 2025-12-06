@@ -125,47 +125,57 @@
   gap: 0.5rem;
   justify-content: center;
   min-width: 80px;
+  color: white; /* Always white */
 }
 
 .actionButton:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+  color: rgba(255, 255, 255, 0.6); /* Faded white when disabled */
 }
 
 .approveButton {
-  background: rgba(16, 185, 129, 0.2);
-  color: var(--success);
-  border: 1px solid rgba(16, 185, 129, 0.3);
+  background: rgba(16, 185, 129, 0.3);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  color: white;
 }
 
 .approveButton:hover:not(:disabled) {
-  background: rgba(16, 185, 129, 0.4);
-  color: white;
+  background: rgba(16, 185, 129, 0.5);
   border-color: var(--success);
 }
 
 .rejectButton {
-  background: rgba(239, 68, 68, 0.2);
-  color: var(--error);
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  background: rgba(239, 68, 68, 0.3);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: white;
 }
 
 .rejectButton:hover:not(:disabled) {
-  background: rgba(239, 68, 68, 0.4);
-  color: white;
+  background: rgba(239, 68, 68, 0.5);
   border-color: var(--error);
 }
 
 .deleteButton {
-  background: rgba(239, 68, 68, 0.1);
-  color: var(--error);
-  border: 1px solid rgba(239, 68, 68, 0.2);
+  background: rgba(239, 68, 68, 0.2);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: white;
 }
 
 .deleteButton:hover:not(:disabled) {
-  background: rgba(239, 68, 68, 0.3);
-  color: white;
+  background: rgba(239, 68, 68, 0.4);
   border-color: var(--error);
+}
+
+.filterButton {
+  background: rgba(99, 102, 241, 0.2);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  color: white;
+}
+
+.filterButton:hover:not(:disabled) {
+  background: rgba(99, 102, 241, 0.4);
+  border-color: var(--primary);
 }
 
 .dnsStatus {
