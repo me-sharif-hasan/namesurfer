@@ -1,0 +1,11 @@
+# firebase-admin-key.json
+# Add this file to .gitignore - never commit it!
+
+# To get this file:
+# 1. Go to Firebase Console: https://console.firebase.google.com/
+# 2. Select your project
+# 3. Go to Project Settings (gear icon) > Service Accounts
+# 4. Click "Generate new private key"
+# 5. Download the JSON file
+# 6. Rename it to firebase-admin-key.json
+# 7. Place it in the project root (same folder as package.json)
