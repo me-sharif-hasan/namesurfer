@@ -15,8 +15,13 @@ export default function Login() {
     // Check if already logged in
     const unsubscribe = auth.onAuthStateChanged((user) => {
       if (user) {
-        // Redirect to dashboard
-        router.push('/dashboard');
+        // Check if there's pending subdomain data - redirect to home to process it
+        const pendingData = sessionStorage.getItem('pendingSubdomain');
+        if (pendingData) {
+          router.push('/');
+        } else {
+          router.push('/dashboard');
+        }
       }
     });
     
