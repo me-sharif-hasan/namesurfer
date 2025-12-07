@@ -35,14 +35,14 @@ async function handleGet(req, res, startTime) {
       
       logInfo(`Fetching subdomains for ${user.email}${user.isAdmin ? ' (ADMIN - all)' : ' (USER - own)' }`);
       
-      let query = adminDb.collection('subdomains')
-        .orderBy('createdAt', 'desc')
-        .limit(limitNum);
+      let query = adminDb.collection('subdomains');
       
       // Regular users see only their own subdomains
       if (!user.isAdmin) {
         query = query.where('userId', '==', user.uid);
       }
+      
+      query = query.orderBy('createdAt', 'desc').limit(limitNum);
       
       if (startAfter) {
         const startDoc = await adminDb.collection('subdomains').doc(startAfter).get();
