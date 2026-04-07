@@ -38,6 +38,8 @@ jobs:
             echo "==> Pulling latest code"
             git pull origin main
 
+            chmod 644 .env
+
             echo "==> Installing dependencies"
             npm install --production=false
 
