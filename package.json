@@ -10,13 +10,14 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "next": "^14.0.4",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
+    "@opentelemetry/api": "^1.9.0",
     "firebase": "^10.7.1",
     "firebase-admin": "^12.0.0",
-    "validator": "^13.11.0",
-    "nodemailer": "^6.9.9"
+    "next": "^14.0.4",
+    "nodemailer": "^6.9.9",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "validator": "^13.11.0"
   },
   "devDependencies": {
     "eslint": "^8.56.0",

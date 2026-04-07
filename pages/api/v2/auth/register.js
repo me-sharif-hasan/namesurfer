@@ -82,6 +82,25 @@ export default async function handler(req, res) {
       if (userDoc.exists && userDoc.data().emailVerified) {
         return res.status(409).json({ error: 'This email is already registered. Please sign in.' });
       }
+
+      // If no Firestore profile exists yet (e.g. account created outside our system),
+      // create one now using the data from this registration attempt.
+      if (!userDoc.exists) {
+        // Re-check username uniqueness (it was checked above but validate again to be safe)
+        await adminDb.collection('users').doc(existingUid).set({
+          uid: existingUid,
+          username: u,
+          name: n,
+          email: emailVal,
+          emailVerified: false,
+          onboardingStatus: 'pending',
+          linuxUser: `inthespace_${u}`,
+          createdAt: new Date(),
+          provider: 'password',
+        });
+        logInfo(`Created missing Firestore profile for existing Auth account: ${emailVal}`);
+      }
+
       // Unverified — resend OTP
       const storedName = userDoc.exists ? userDoc.data().name : n;
       await sendOTP(existingUid, emailVal, storedName);

@@ -1,0 +1,465 @@
+{
+  "info": {
+    "name": "InTheSpace Hosting — v2 API",
+    "_postman_id": "inthespace-v2-api",
+    "description": "Test collection for all v2 auth and onboarding endpoints.\n\n**Setup:**\n1. Set the `baseUrl` variable to your server (default: http://localhost:3001)\n2. Run `Register (email/password)` → copy the returned `uid` into the `uid` variable\n3. Run `Verify OTP` with the code from your email\n4. Sign in via Firebase client SDK to get a `firebaseIdToken`, paste it into the variable\n5. Run `Start Onboarding` → copy `jobId` into the variable\n6. Run `Onboarding Status (SSE)` — use Postman's stream view or curl",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3001",
+      "type": "string",
+      "description": "Base URL of the Next.js server"
+    },
+    {
+      "key": "uid",
+      "value": "",
+      "type": "string",
+      "description": "Firebase UID returned from /register (paste here after registering)"
+    },
+    {
+      "key": "firebaseIdToken",
+      "value": "",
+      "type": "string",
+      "description": "Firebase ID token for authenticated requests (obtain from Firebase Auth SDK after sign-in)"
+    },
+    {
+      "key": "jobId",
+      "value": "",
+      "type": "string",
+      "description": "Onboarding job ID returned from /onboarding/start"
+    },
+    {
+      "key": "otpCode",
+      "value": "",
+      "type": "string",
+      "description": "6-digit OTP code received in email"
+    },
+    {
+      "key": "googleIdToken",
+      "value": "",
+      "type": "string",
+      "description": "Firebase ID token obtained from Google Sign-In (native mobile SDK)"
+    }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "description": "User registration, OTP verification, and Google sign-in",
+      "item": [
+        {
+          "name": "1. Register (email + password)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.uid) {",
+                  "    pm.collectionVariables.set('uid', json.uid);",
+                  "    console.log('uid saved:', json.uid);",
+                  "}",
+                  "pm.test('Status is 201 (new) or 200 (resent)', () => {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "});",
+                  "pm.test('uid returned', () => pm.expect(json).to.have.property('uid'));",
+                  "pm.test('message present', () => pm.expect(json).to.have.property('message'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"testuser01\",\n  \"name\": \"Test User\",\n  \"email\": \"testuser01@example.com\",\n  \"password\": \"Password123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v2", "auth", "register"]
+            },
+            "description": "Creates a new user account and sends a 6-digit OTP to the email address.\n\n**Duplicate email (unverified):** Returns 200 + resent:true instead of 409.\n**Duplicate email (verified):** Returns 409.\n**Duplicate username:** Returns 409."
+          },
+          "response": [
+            {
+              "name": "201 — New user created",
+              "status": "Created",
+              "code": 201,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"uid\": \"firebase-uid-abc123\",\n  \"message\": \"Account created! Check your email for a 6-digit verification code.\"\n}"
+            },
+            {
+              "name": "200 — OTP resent (unverified duplicate)",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"uid\": \"firebase-uid-abc123\",\n  \"message\": \"A verification code has been resent to your email.\",\n  \"resent\": true\n}"
+            },
+            {
+              "name": "409 — Username taken",
+              "status": "Conflict",
+              "code": 409,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"error\": \"Username is already taken\"\n}"
+            },
+            {
+              "name": "429 — Rate limited",
+              "status": "Too Many Requests",
+              "code": 429,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"error\": \"Too many registration attempts. Try again in 15 minutes.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "2. Verify OTP",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('success:true', () => pm.expect(json.success).to.be.true);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"uid\": \"{{uid}}\",\n  \"code\": \"{{otpCode}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/auth/verify-otp",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v2", "auth", "verify-otp"]
+            },
+            "description": "Verifies the 6-digit OTP code sent to the user's email.\n\n- Max 5 wrong attempts before the code is invalidated\n- Code expires in 15 minutes\n- On success, marks the user's email as verified in both Firestore and Firebase Auth"
+          },
+          "response": [
+            {
+              "name": "200 — Verified",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"message\": \"Email verified! You can now sign in and start onboarding.\"\n}"
+            },
+            {
+              "name": "400 — Wrong code",
+              "status": "Bad Request",
+              "code": 400,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"error\": \"Invalid code. 4 attempt(s) remaining.\"\n}"
+            },
+            {
+              "name": "400 — Expired",
+              "status": "Bad Request",
+              "code": 400,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"error\": \"Verification code expired. Please request a new one.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "3. Resend OTP",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('message present', () => pm.expect(pm.response.json()).to.have.property('message'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"testuser01@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/auth/resend-otp",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v2", "auth", "resend-otp"]
+            },
+            "description": "Resends the OTP to an unverified account.\n\n- Rate-limited to 3 requests per 15 minutes per IP\n- Returns a vague 200 even if the email doesn't exist (prevents email enumeration)"
+          },
+          "response": [
+            {
+              "name": "200 — Sent (or email not found — intentionally vague)",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"message\": \"Verification code sent. Please check your email.\"\n}"
+            },
+            {
+              "name": "400 — Already verified",
+              "status": "Bad Request",
+              "code": 400,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"error\": \"This email is already verified. Please sign in.\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "4. Google Sign-In (new user)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "pm.test('Status 200 or 201', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('uid returned', () => pm.expect(json).to.have.property('uid'));",
+                  "pm.test('username returned', () => pm.expect(json).to.have.property('username'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"idToken\": \"{{googleIdToken}}\",\n  \"username\": \"googleuser01\",\n  \"name\": \"Google User\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/auth/google",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v2", "auth", "google"]
+            },
+            "description": "Exchange a Firebase Google ID token for a server-side profile.\n\n**First-time (new user):** Send `idToken` + `username` + optional `name` → returns 201 + `isNew: true`\n\n**Returning user (login):** Send only `idToken` → returns 200 + `isNew: false`\n\n**Get the `googleIdToken`:**\n```js\n// In your Flutter/React Native app:\nfinal GoogleSignInAccount googleUser = await GoogleSignIn().signIn();\nfinal GoogleSignInAuthentication googleAuth = await googleUser.authentication;\nfinal credential = GoogleAuthProvider.credential(idToken: googleAuth.idToken);\nfinal userCredential = await FirebaseAuth.instance.signInWithCredential(credential);\nfinal idToken = await userCredential.user.getIdToken();\n```"
+          },
+          "response": [
+            {
+              "name": "201 — New Google user registered",
+              "status": "Created",
+              "code": 201,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"uid\": \"google-uid-xyz\",\n  \"username\": \"googleuser01\",\n  \"name\": \"Google User\",\n  \"email\": \"googleuser01@gmail.com\",\n  \"emailVerified\": true,\n  \"onboardingStatus\": \"pending\",\n  \"isNew\": true\n}"
+            },
+            {
+              "name": "200 — Existing user login",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"uid\": \"google-uid-xyz\",\n  \"username\": \"googleuser01\",\n  \"name\": \"Google User\",\n  \"email\": \"googleuser01@gmail.com\",\n  \"emailVerified\": true,\n  \"onboardingStatus\": \"completed\",\n  \"isNew\": false\n}"
+            },
+            {
+              "name": "400 — Username required (new user, no username sent)",
+              "status": "Bad Request",
+              "code": 400,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"error\": \"Username is required for first-time Google sign-up\",\n  \"requiresUsername\": true\n}"
+            }
+          ]
+        },
+        {
+          "name": "4b. Google Sign-In (returning user / login only)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"idToken\": \"{{googleIdToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/auth/google",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v2", "auth", "google"]
+            },
+            "description": "Existing user login via Google — no username needed. Returns 200 + isNew:false."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Onboarding",
+      "description": "Hosting provisioning workflow. Requires a valid Firebase ID token (Bearer).\n\nGet your token after signing in:\n```js\nconst token = await firebase.auth().currentUser.getIdToken();\n```",
+      "item": [
+        {
+          "name": "5. Start Onboarding",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.jobId) {",
+                  "    pm.collectionVariables.set('jobId', json.jobId);",
+                  "    console.log('jobId saved:', json.jobId);",
+                  "}",
+                  "pm.test('Status 202 or 200', () => pm.expect(pm.response.code).to.be.oneOf([200, 202]));",
+                  "pm.test('jobId present', () => pm.expect(json).to.have.property('jobId'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{firebaseIdToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/onboarding/start",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v2", "onboarding", "start"]
+            },
+            "description": "Queues or returns the hosting provisioning job for the authenticated user.\n\n**Requirements:**\n- Valid Bearer token\n- Email must be verified\n- Cannot onboard more than once (returns existing job/status if already complete)\n\n**Behaviour:**\n- `202` — new job created and queued\n- `200` — job already active (returns existing jobId)\n- `403` — email not verified\n- `200` with `onboardingStatus: completed` — already provisioned"
+          },
+          "response": [
+            {
+              "name": "202 — Job queued",
+              "status": "Accepted",
+              "code": 202,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"jobId\": \"550e8400-e29b-41d4-a716-446655440000\",\n  \"status\": \"queued\",\n  \"message\": \"Hosting setup queued. Connect to the status stream to watch progress.\",\n  \"statusUrl\": \"/api/v2/onboarding/status/550e8400-e29b-41d4-a716-446655440000\"\n}"
+            },
+            {
+              "name": "403 — Email not verified",
+              "status": "Forbidden",
+              "code": 403,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"error\": \"Please verify your email address before starting hosting setup.\",\n  \"requiresVerification\": true\n}"
+            },
+            {
+              "name": "200 — Already completed",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"message\": \"Hosting is already set up for your account.\",\n  \"onboardingStatus\": \"completed\",\n  \"username\": \"testuser01\",\n  \"subdomain\": \"testuser01.inthespace.online\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "6. Onboarding Status (SSE stream)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{firebaseIdToken}}" },
+              { "key": "Accept", "value": "text/event-stream" },
+              { "key": "Cache-Control", "value": "no-cache" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/onboarding/status/{{jobId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v2", "onboarding", "status", "{{jobId}}"]
+            },
+            "description": "**Server-Sent Events (SSE) stream** — keeps the connection open and pushes real-time step updates.\n\n> **Note:** Postman supports SSE — click **Send** and watch the response stream.\n\n**Event format:**\n```\ndata: {\"type\":\"update\",\"job\":{\"status\":\"running\",\"steps\":{...}}}\n\ndata: {\"type\":\"update\",\"job\":{\"steps\":{\"create_linux_user\":{\"status\":\"done\"}}}}\n\ndata: {\"type\":\"complete\",\"job\":{\"status\":\"completed\"}}\n```\n\n**Event types:**\n- `update` — a step changed (running → done / error)\n- `complete` — all 8 steps done successfully\n- `error` — a step failed, job halted\n- `keepalive` — heartbeat every 15 s\n\n**Provisioning steps (in order):**\n1. `create_linux_user` — Linux user `inthespace_<username>`\n2. `create_public_html` — `/home/inthespace_<username>/public_html/`\n3. `deny_sudo` — sudoers deny rule\n4. `set_disk_quota` — 500 MB storage quota\n5. `register_dns` — A record `<username>.inthespace.online`\n6. `create_vhost` — Apache2 virtual host\n7. `create_mysql_user` — MySQL user + database\n8. `finalize` — Firestore profile update\n\n**Alternative — test with curl:**\n```bash\ncurl -N \\\n  -H \"Authorization: Bearer YOUR_TOKEN\" \\\n  -H \"Accept: text/event-stream\" \\\n  http://localhost:3001/api/v2/onboarding/status/YOUR_JOB_ID\n```"
+          },
+          "response": [
+            {
+              "name": "200 — SSE stream example",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "text/event-stream" }],
+              "body": "data: {\"type\":\"update\",\"job\":{\"status\":\"running\",\"steps\":{\"create_linux_user\":{\"status\":\"running\",\"message\":\"In progress…\"}}}}\n\ndata: {\"type\":\"update\",\"job\":{\"steps\":{\"create_linux_user\":{\"status\":\"done\",\"message\":\"Done\"}}}}\n\ndata: {\"type\":\"update\",\"job\":{\"steps\":{\"create_public_html\":{\"status\":\"running\",\"message\":\"In progress…\"}}}}\n\ndata: {\"type\":\"keepalive\"}\n\ndata: {\"type\":\"complete\",\"job\":{\"status\":\"completed\",\"completedAt\":1712483200000}}\n"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Utilities",
+      "description": "Helper requests for testing edge cases",
+      "item": [
+        {
+          "name": "Check subdomain availability (v1)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/subdomains/check?name=testuser01",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "subdomains", "check"],
+              "query": [{ "key": "name", "value": "testuser01" }]
+            },
+            "description": "Existing v1 endpoint — checks if a subdomain name is available in Firestore."
+          },
+          "response": []
+        },
+        {
+          "name": "Register — duplicate username (expect 409)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"testuser01\",\n  \"name\": \"Another User\",\n  \"email\": \"another@example.com\",\n  \"password\": \"Password123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v2", "auth", "register"]
+            },
+            "description": "Should return 409 — username already taken."
+          },
+          "response": []
+        },
+        {
+          "name": "Register — weak password (expect 400)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"newuser99\",\n  \"name\": \"New User\",\n  \"email\": \"newuser99@example.com\",\n  \"password\": \"123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v2", "auth", "register"]
+            },
+            "description": "Should return 400 — password too short (< 8 chars)."
+          },
+          "response": []
+        },
+        {
+          "name": "Start Onboarding — no token (expect 401)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{}" },
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/onboarding/start",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v2", "onboarding", "start"]
+            },
+            "description": "Missing Authorization header — should return 401."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

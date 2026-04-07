@@ -27,28 +27,40 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'uid and code are required' });
     }
 
-    // Validate user exists in our system
+    // Load user profile from Firestore (may not exist for pre-existing Firebase Auth accounts)
     const userDoc = await adminDb.collection('users').doc(uid).get();
-    if (!userDoc.exists) {
-      return res.status(404).json({ error: 'User not found' });
-    }
 
-    if (userDoc.data().emailVerified) {
+    // If Firestore doc exists, check it isn't already verified
+    if (userDoc.exists && userDoc.data().emailVerified) {
       return res.status(400).json({ error: 'Email is already verified. Please sign in.' });
     }
 
-    // Verify OTP
+    // Also check Firebase Auth directly in case Firestore doc is missing
+    if (!userDoc.exists) {
+      try {
+        const authUser = await adminAuth.getUser(uid);
+        if (authUser.emailVerified) {
+          return res.status(400).json({ error: 'Email is already verified. Please sign in.' });
+        }
+      } catch (_) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+    }
+
+    // Verify OTP (works regardless of Firestore document existence)
     const result = await verifyOTP(uid, code);
     if (!result.valid) {
       logAPI(req.method, '/api/v2/auth/verify-otp', 400, Date.now() - startTime);
       return res.status(400).json({ error: result.error });
     }
 
-    // Mark verified in Firestore + Firebase Auth simultaneously
-    await Promise.all([
-      adminDb.collection('users').doc(uid).update({ emailVerified: true }),
-      adminAuth.updateUser(uid, { emailVerified: true }),
-    ]);
+    // Update Firebase Auth (always)
+    await adminAuth.updateUser(uid, { emailVerified: true });
+
+    // Update Firestore only if the document exists
+    if (userDoc.exists) {
+      await adminDb.collection('users').doc(uid).update({ emailVerified: true });
+    }
 
     logInfo(`Email verified: uid=${uid}`);
     logAPI(req.method, '/api/v2/auth/verify-otp', 200, Date.now() - startTime);
