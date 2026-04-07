@@ -20,7 +20,8 @@ jobs:
           key: ${{ secrets.namesurfer_ssh }}
           envs: ENV_CONTENT
           script: |
-            sudo sh -c 'printf "%s" "$ENV_CONTENT" > /home/ubuntu/namesurfer/.env.local'
+            printf '%s' "$ENV_CONTENT" | sudo tee /home/ubuntu/namesurfer/.env.local >/dev/null
+            sudo chown ubuntu:ubuntu /home/ubuntu/namesurfer/.env.local
             sudo chmod 600 /home/ubuntu/namesurfer/.env.local
 
       - name: Pull, build and restart with PM2
@@ -32,6 +33,7 @@ jobs:
           script_stop: true
           script: |
             cd /home/ubuntu/namesurfer
+            sudo chown -R $(whoami):$(whoami) /home/ubuntu/namesurfer
 
             echo "==> Pulling latest code"
             git pull origin main
