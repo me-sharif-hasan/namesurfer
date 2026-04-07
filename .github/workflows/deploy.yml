@@ -20,10 +20,10 @@ jobs:
           key: ${{ secrets.namesurfer_ssh }}
           envs: ENV_CONTENT
           script: |
-            printf '%s' "$ENV_CONTENT" > /var/www/opensubdomain/.env.local
-            chmod 600 /var/www/opensubdomain/.env.local
+            printf '%s' "$ENV_CONTENT" > /home/ubuntu/namesurfer/.env.local
+            chmod 600 /home/ubuntu/namesurfer/.env.local
 
-      - name: Pull, build and restart
+      - name: Pull, build and restart with PM2
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.namesurfer_host }}
@@ -31,7 +31,7 @@ jobs:
           key: ${{ secrets.namesurfer_ssh }}
           script_stop: true
           script: |
-            cd /var/www/opensubdomain
+            cd /home/ubuntu/namesurfer
 
             echo "==> Pulling latest code"
             git pull origin main
@@ -42,8 +42,20 @@ jobs:
             echo "==> Building application"
             npm run build
 
-            echo "==> Restarting service"
-            sudo systemctl restart opensubdomain
+            echo "==> Ensuring PM2 is installed"
+            if ! command -v pm2 >/dev/null 2>&1; then
+              npm install -g pm2
+            fi
 
-            echo "==> Verifying service is active"
-            sudo systemctl is-active opensubdomain
+            echo "==> Starting or reloading PM2 process"
+            if pm2 pid opensubdomain >/dev/null 2>&1; then
+              pm2 reload opensubdomain --update-env
+            else
+              pm2 start npm --name "opensubdomain" -- start
+            fi
+
+            echo "==> Saving PM2 process list"
+            pm2 save
+
+            echo "==> Showing PM2 process status"
+            pm2 show opensubdomain
