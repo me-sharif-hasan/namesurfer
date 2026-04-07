@@ -173,7 +173,60 @@
           ]
         },
         {
-          "name": "3. Resend OTP",
+          "name": "3. Login (Email or Username)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.idToken) {",
+                  "    pm.collectionVariables.set('firebaseIdToken', json.idToken);",
+                  "    console.log('firebaseIdToken saved:', json.idToken);",
+                  "}",
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('idToken returned', () => pm.expect(json).to.have.property('idToken'));",
+                  "pm.test('profile exists', () => pm.expect(json).to.have.property('profile'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"testuser01@example.com\",\n  \"password\": \"Password123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v2", "auth", "login"]
+            },
+            "description": "Authenticates a user via Email or Username and Password.\n\n- Returns a Firebase ID token (exchanged via REST API)\n- Automatically handles Username-to-Email mapping\n- Sets collection variable `firebaseIdToken` on success\n\n**Body Sample (Username):**\n```json\n{\n  \"identifier\": \"testuser01\",\n  \"password\": \"Password123!\"\n}\n```"
+          },
+          "response": [
+            {
+              "name": "200 — Success",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"idToken\": \"...\",\n  \"refreshToken\": \"...\",\n  \"expiresIn\": \"3600\",\n  \"localId\": \"...\",\n  \"profile\": {\n    \"uid\": \"...\",\n    \"username\": \"testuser01\",\n    \"name\": \"Test User\",\n    \"email\": \"testuser01@example.com\",\n    \"emailVerified\": true,\n    \"onboardingStatus\": \"pending\"\n  }\n}"
+            },
+            {
+              "name": "401 — Invalid Credentials",
+              "status": "Unauthorized",
+              "code": 401,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"error\": \"Invalid email/username or password\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "4. Resend OTP",
           "event": [
             {
               "listen": "test",
