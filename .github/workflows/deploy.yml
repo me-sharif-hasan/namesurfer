@@ -24,7 +24,7 @@ jobs:
             sudo chown ubuntu:ubuntu /home/ubuntu/namesurfer/.env.local
             sudo chmod 600 /home/ubuntu/namesurfer/.env.local
 
-      - name: Pull, build and restart with PM2
+      - name: Pull, build and restart service
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.namesurfer_host }}
@@ -44,21 +44,8 @@ jobs:
             echo "==> Building application"
             npm run build
 
-            echo "==> Ensuring PM2 is installed"
-            if ! command -v pm2 >/dev/null 2>&1; then
-              npm install -g pm2
-            fi
+            echo "==> Restarting systemd service"
+            sudo systemctl restart opensubdomain
 
-            echo "==> PM2 version: $(pm2 -v)"
-            echo "==> Starting or reloading PM2 process"
-            if pm2 describe opensubdomain >/dev/null 2>&1; then
-              pm2 reload opensubdomain --update-env
-            else
-              pm2 start /home/ubuntu/namesurfer/node_modules/.bin/next --name "opensubdomain" -- start -p 3000
-            fi
-
-            echo "==> Saving PM2 process list"
-            pm2 save
-
-            echo "==> Showing PM2 process status"
-            pm2 show opensubdomain || true
+            echo "==> Verifying service status"
+            sudo systemctl is-active opensubdomain
