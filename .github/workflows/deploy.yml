@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Write .env.local on server
+      - name: Write .env on server
         uses: appleboy/ssh-action@v1.2.0
         env:
           ENV_CONTENT: ${{ secrets.namesurfer_env }}
@@ -20,9 +20,9 @@ jobs:
           key: ${{ secrets.namesurfer_ssh }}
           envs: ENV_CONTENT
           script: |
-            printf '%s' "$ENV_CONTENT" | sudo tee /home/ubuntu/namesurfer/.env.local >/dev/null
-            sudo chown ubuntu:ubuntu /home/ubuntu/namesurfer/.env.local
-            sudo chmod 600 /home/ubuntu/namesurfer/.env.local
+            printf '%s' "$ENV_CONTENT" | sudo tee /home/ubuntu/namesurfer/.env >/dev/null
+            sudo chown ubuntu:ubuntu /home/ubuntu/namesurfer/.env
+            sudo chmod 600 /home/ubuntu/namesurfer/.env
 
       - name: Pull, build and restart service
         uses: appleboy/ssh-action@v1.2.0
