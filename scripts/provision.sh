@@ -150,8 +150,21 @@ EOF
     fi
     CONF_FILE="${APACHE_SITES}/${DOMAIN}.conf"
     cat > "$CONF_FILE" << APACHEEOF
+# ── HTTP: redirect all traffic to HTTPS ──────────────────────────────────────
 <VirtualHost *:80>
     ServerName ${DOMAIN}
+    RewriteEngine On
+    RewriteRule ^(.*)$ https://%{HTTP_HOST}\$1 [R=301,L]
+</VirtualHost>
+
+# ── HTTPS: serve user files ───────────────────────────────────────────────────
+<VirtualHost *:443>
+    ServerName ${DOMAIN}
+
+    SSLEngine on
+    SSLCertificateFile    /etc/letsencrypt/live/inthespace.online/fullchain.pem
+    SSLCertificateKeyFile /etc/letsencrypt/live/inthespace.online/privkey.pem
+
     DocumentRoot ${PUBLIC_HTML}
 
     <Directory ${PUBLIC_HTML}>
@@ -170,9 +183,11 @@ EOF
 </VirtualHost>
 APACHEEOF
 
+    # Ensure required modules are enabled
+    a2enmod ssl rewrite
     # Enable the site
     a2ensite "${DOMAIN}.conf"
-    echo "OK: vhost created for $DOMAIN"
+    echo "OK: vhost created for $DOMAIN (HTTP→HTTPS redirect + SSL)"
     ;;
 
   # ── 7. Reload Apache ─────────────────────────────────────────────────────────
