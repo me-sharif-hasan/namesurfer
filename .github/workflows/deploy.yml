@@ -49,11 +49,12 @@ jobs:
               npm install -g pm2
             fi
 
+            echo "==> PM2 version: $(pm2 -v)"
             echo "==> Starting or reloading PM2 process"
             if pm2 describe opensubdomain >/dev/null 2>&1; then
               pm2 reload opensubdomain --update-env
             else
-              pm2 start npm --name "opensubdomain" -- start
+              pm2 start /home/ubuntu/namesurfer/node_modules/.bin/next --name "opensubdomain" -- start -p 3000
             fi
 
             echo "==> Saving PM2 process list"
