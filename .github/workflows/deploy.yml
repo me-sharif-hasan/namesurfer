@@ -49,3 +49,9 @@ jobs:
 
             echo "==> Verifying service status"
             sudo systemctl is-active opensubdomain
+
+            echo "==> Restarting worker with PM2"
+            sudo pm2 restart onboarding-worker --update-env || sudo pm2 start worker.js --name onboarding-worker --env-file /home/ubuntu/namesurfer/.env
+
+            echo "==> Saving PM2 process list"
+            sudo pm2 save
