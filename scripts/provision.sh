@@ -59,7 +59,7 @@ case "$ACTION" in
       --create-home \
       --home-dir "$HOME_DIR" \
       --shell /usr/sbin/nologin \
-      --comment "InTheSpace hosting: ${RAW_USERNAME}" \
+      --comment "InTheSpace hosting ${RAW_USERNAME}" \
       "$LINUX_USER"
     chmod 750 "$HOME_DIR"
     echo "OK: user $LINUX_USER created"
