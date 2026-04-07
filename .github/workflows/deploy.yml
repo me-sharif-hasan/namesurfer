@@ -1,0 +1,49 @@
+name: Deploy to Ubuntu Server
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Write .env.local on server
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          ENV_CONTENT: ${{ secrets.namesurfer_env }}
+        with:
+          host: ${{ secrets.namesurfer_host }}
+          username: ${{ secrets.namesurfer_user }}
+          key: ${{ secrets.namesurfer_ssh }}
+          envs: ENV_CONTENT
+          script: |
+            printf '%s' "$ENV_CONTENT" > /var/www/opensubdomain/.env.local
+            chmod 600 /var/www/opensubdomain/.env.local
+
+      - name: Pull, build and restart
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.namesurfer_host }}
+          username: ${{ secrets.namesurfer_user }}
+          key: ${{ secrets.namesurfer_ssh }}
+          script_stop: true
+          script: |
+            cd /var/www/opensubdomain
+
+            echo "==> Pulling latest code"
+            git pull origin main
+
+            echo "==> Installing dependencies"
+            npm install --production=false
+
+            echo "==> Building application"
+            npm run build
+
+            echo "==> Restarting service"
+            sudo systemctl restart opensubdomain
+
+            echo "==> Verifying service is active"
+            sudo systemctl is-active opensubdomain
