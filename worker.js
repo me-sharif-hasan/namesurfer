@@ -16,8 +16,8 @@ const fs = require('fs');
 const { execFile } = require('child_process');
 const crypto = require('crypto');
 
-// ── Load env vars (.env.local) ────────────────────────────────────────────────
-const envPath = path.join(__dirname, '.env.local');
+// ── Load env vars (.env) ──────────────────────────────────────────────────────
+const envPath = path.join(__dirname, '.env');
 if (fs.existsSync(envPath)) {
   fs.readFileSync(envPath, 'utf8').split('\n').forEach(line => {
     const m = line.match(/^([^#=]+)=(.*)$/);
@@ -44,7 +44,11 @@ if (!admin.apps.length) {
   } else {
     credential = admin.credential.applicationDefault();
   }
-  admin.initializeApp({ credential, ...(databaseURL && { databaseURL }) });
+  if (!databaseURL) {
+    console.error('[FATAL] FIREBASE_DATABASE_URL is not set. Add it to your .env file.');
+    process.exit(1);
+  }
+  admin.initializeApp({ credential, databaseURL });
 }
 
 const rtdb = admin.database();
