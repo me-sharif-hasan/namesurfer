@@ -50,7 +50,7 @@ jobs:
             fi
 
             echo "==> Starting or reloading PM2 process"
-            if pm2 pid opensubdomain >/dev/null 2>&1; then
+            if pm2 describe opensubdomain >/dev/null 2>&1; then
               pm2 reload opensubdomain --update-env
             else
               pm2 start npm --name "opensubdomain" -- start
@@ -60,4 +60,4 @@ jobs:
             pm2 save
 
             echo "==> Showing PM2 process status"
-            pm2 show opensubdomain
+            pm2 show opensubdomain || true
