@@ -20,8 +20,8 @@ jobs:
           key: ${{ secrets.namesurfer_ssh }}
           envs: ENV_CONTENT
           script: |
-            printf '%s' "$ENV_CONTENT" > /home/ubuntu/namesurfer/.env.local
-            chmod 600 /home/ubuntu/namesurfer/.env.local
+            sudo sh -c 'printf "%s" "$ENV_CONTENT" > /home/ubuntu/namesurfer/.env.local'
+            sudo chmod 600 /home/ubuntu/namesurfer/.env.local
 
       - name: Pull, build and restart with PM2
         uses: appleboy/ssh-action@v1.2.0
