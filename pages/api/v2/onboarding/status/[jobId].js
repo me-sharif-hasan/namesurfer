@@ -9,10 +9,10 @@
 //   data: { type: 'error', job: {...} }      — job failed
 //   data: { type: 'keepalive' }              — heartbeat every 15s
 
-import { adminDb } from '../../../../lib/firebase-admin';
-import { rtdb } from '../../../../lib/firebase-rtdb';
-import { verifyAuthToken } from '../../../../lib/auth-middleware';
-import { logAPI, logInfo, logError } from '../../../../lib/logger';
+import { adminDb } from '../../../../../lib/firebase-admin';
+import { rtdb } from '../../../../../lib/firebase-rtdb';
+import { verifyAuthToken } from '../../../../../lib/auth-middleware';
+import { logAPI, logInfo, logError } from '../../../../../lib/logger';
 
 // Disable Next.js response buffering for SSE
 export const config = { api: { responseLimit: false } };
