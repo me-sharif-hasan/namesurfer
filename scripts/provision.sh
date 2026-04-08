@@ -11,6 +11,7 @@
 #   deny-sudo          <username>
 #   set-disk-quota     <username> <quota_mb>
 #   set-limits         <username> <ram_mb>
+#   configure-sshd                         (idempotent, call once per server)
 #   create-vhost       <username> <domain>
 #   reload-apache
 #   create-mysql-user  <username> <db_name> <db_password>
@@ -193,7 +194,30 @@ APACHEEOF
     echo "OK: vhost created for $DOMAIN (HTTP→HTTPS redirect + SSL)"
     ;;
 
-  # ── 7. Reload Apache ─────────────────────────────────────────────────────────
+  # ── 7. Configure sshd for hosted users ──────────────────────────────────────
+  configure-sshd)
+    SSHD_DROP_IN="/etc/ssh/sshd_config.d/inthespace.conf"
+    mkdir -p /etc/ssh/sshd_config.d
+    cat > "$SSHD_DROP_IN" << 'SSHDEOF'
+# InTheSpace hosted users — allow both password and pubkey auth
+Match User inthespace_*
+    PasswordAuthentication yes
+    PubkeyAuthentication yes
+    KbdInteractiveAuthentication yes
+SSHDEOF
+    chmod 644 "$SSHD_DROP_IN"
+    # Validate config before reloading
+    if sshd -t; then
+      systemctl reload ssh 2>/dev/null || systemctl reload sshd 2>/dev/null || true
+      echo "OK: sshd configured and reloaded"
+    else
+      rm -f "$SSHD_DROP_IN"
+      echo "ERROR: sshd config test failed — drop-in removed" >&2
+      exit 1
+    fi
+    ;;
+
+  # ── 8. Reload Apache ─────────────────────────────────────────────────────────
   reload-apache)
     apache2ctl configtest && apache2ctl graceful
     echo "OK: apache reloaded"

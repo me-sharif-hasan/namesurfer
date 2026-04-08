@@ -133,6 +133,11 @@ async function processJob(jobId, jobData) {
   await rtdb.ref(`onboarding_jobs/${jobId}`).update({ status: 'running', startedAt: Date.now() });
 
   const steps = [
+    // ── Step 0: Ensure sshd allows password + pubkey auth for hosted users ──────
+    {
+      id: 'configure_sshd',
+      run: () => runProvision(['configure-sshd', username]),
+    },
     // ── Step 1: Create Linux user ──────────────────────────────────────────────
     {
       id: 'create_linux_user',

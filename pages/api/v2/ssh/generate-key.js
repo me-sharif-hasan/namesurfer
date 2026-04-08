@@ -3,6 +3,10 @@
 // Generates an RSA key pair, installs public key on server, stores private key in Firestore.
 
 import crypto from 'crypto';
+import { execFile } from 'child_process';
+import { mkdtempSync, readFileSync, rmSync } from 'fs';
+import { tmpdir } from 'os';
+import path from 'path';
 import { adminDb } from '../../../../lib/firebase-admin';
 import { verifyAuthToken } from '../../../../lib/auth-middleware';
 import { runProvision } from '../../../../lib/provision-runner';
@@ -79,22 +83,28 @@ export default async function handler(req, res) {
 
 function generateKeyPair() {
   return new Promise((resolve, reject) => {
-    crypto.generateKeyPair('rsa', {
-      modulusLength: 4096,
-      publicKeyEncoding: {
-        type: 'spki',
-        format: 'pem',
-      },
-      privateKeyEncoding: {
-        type: 'pkcs8',
-        format: 'pem',
-      },
-    }, (err, publicKey, privateKey) => {
-      if (err) {
-        reject(err);
-      } else {
-        resolve({ publicKey, privateKey });
+    const tmpDir = mkdtempSync(path.join(tmpdir(), 'sshkey-'));
+    const keyPath = path.join(tmpDir, 'id_ed25519');
+
+    execFile(
+      'ssh-keygen',
+      ['-t', 'ed25519', '-f', keyPath, '-N', '', '-C', ''],
+      (err) => {
+        if (err) {
+          rmSync(tmpDir, { recursive: true, force: true });
+          return reject(err);
+        }
+        try {
+          const privateKey = readFileSync(keyPath, 'utf8');
+          // Public key line is "ssh-ed25519 AAAA... " — strip trailing newline/comment
+          const publicKey = readFileSync(`${keyPath}.pub`, 'utf8').trim();
+          resolve({ publicKey, privateKey });
+        } catch (readErr) {
+          reject(readErr);
+        } finally {
+          rmSync(tmpDir, { recursive: true, force: true });
+        }
       }
-    });
+    );
   });
 }
