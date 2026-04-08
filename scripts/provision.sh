@@ -66,6 +66,8 @@ case "$ACTION" in
       --comment "InTheSpace hosting ${RAW_USERNAME}" \
       "$LINUX_USER"
     chmod 750 "$HOME_DIR"
+    # Prevent users from listing /home and enumerating other tenants
+    chmod 711 /home
     echo "OK: user $LINUX_USER created"
     ;;
 
