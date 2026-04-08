@@ -15,6 +15,7 @@ const path = require('path');
 const fs = require('fs');
 const { execFile } = require('child_process');
 const crypto = require('crypto');
+const nodemailer = require('nodemailer');
 
 // ── Load env vars (.env) ──────────────────────────────────────────────────────
 const envPath = path.join(__dirname, '.env');
@@ -93,6 +94,53 @@ function runProvision(args) {
   });
 }
 
+// ── Send SSH credentials email ────────────────────────────────────────────────
+async function sendSSHCredentials(email, username, password, domain) {
+  const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST || 'localhost',
+    port: parseInt(process.env.SMTP_PORT || '587', 10),
+    secure: process.env.SMTP_SECURE === 'true',
+    auth: process.env.SMTP_USER
+      ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
+      : undefined,
+  });
+
+  const linuxUser = `inthespace_${username}`;
+  const serverHost = process.env.SERVER_HOST || process.env.DEFAULT_DNS_TARGET_IP || '';
+
+  await transporter.sendMail({
+    from: process.env.EMAIL_FROM || '"InTheSpace Hosting" <noreply@inthespace.online>',
+    to: email,
+    subject: 'Your InTheSpace hosting is ready — SSH credentials inside',
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;background:#f9f9f9;border-radius:8px;">
+        <h2 style="color:#1a1a2e;margin-top:0">🚀 Your hosting account is ready!</h2>
+        <p>Hi <b>${username}</b>,</p>
+        <p>Your InTheSpace hosting has been provisioned. Here are your SSH login details:</p>
+        <table style="width:100%;border-collapse:collapse;background:#fff;border-radius:8px;overflow:hidden;margin:16px 0;">
+          <tr style="background:#1a1a2e;color:#fff;">
+            <td style="padding:10px 16px;font-weight:bold;">Field</td>
+            <td style="padding:10px 16px;font-weight:bold;">Value</td>
+          </tr>
+          <tr><td style="padding:10px 16px;border-bottom:1px solid #eee;color:#555;">Host</td>
+              <td style="padding:10px 16px;border-bottom:1px solid #eee;font-family:monospace;">${serverHost}</td></tr>
+          <tr><td style="padding:10px 16px;border-bottom:1px solid #eee;color:#555;">Username</td>
+              <td style="padding:10px 16px;border-bottom:1px solid #eee;font-family:monospace;">${linuxUser}</td></tr>
+          <tr><td style="padding:10px 16px;color:#555;">Password</td>
+              <td style="padding:10px 16px;font-family:monospace;">${password}</td></tr>
+        </table>
+        <p style="background:#fff3cd;border-left:4px solid #ff8906;padding:12px 16px;border-radius:4px;margin:16px 0;">
+          <b>Keep this password safe.</b> You can also set up SSH key authentication from your dashboard for added security.
+        </p>
+        <p>Connect with:</p>
+        <pre style="background:#1a1a2e;color:#fffffe;padding:14px 18px;border-radius:6px;font-size:14px;">ssh ${linuxUser}@${serverHost}</pre>
+        <p>Your website is live at: <a href="https://${domain}" style="color:#ff8906;">https://${domain}</a></p>
+        <p style="color:#999;font-size:12px;margin-top:24px;">If you didn't sign up for InTheSpace, please ignore this email.</p>
+      </div>
+    `,
+  });
+}
+
 // ── PowerDNS: create A record ─────────────────────────────────────────────────
 async function createDNSRecord(username) {
   const zone = (process.env.POWERDNS_ZONE || 'inthespace.online.');
@@ -129,6 +177,8 @@ async function processJob(jobId, jobData) {
   const { username, userId } = jobData;
   log('INFO', `Processing job ${jobId} for user ${username}`);
 
+  let provisionedSSHPassword = null;
+
   // Mark running
   await rtdb.ref(`onboarding_jobs/${jobId}`).update({ status: 'running', startedAt: Date.now() });
 
@@ -149,9 +199,8 @@ async function processJob(jobId, jobData) {
       run: async () => {
         const sshPassword = crypto.randomBytes(16).toString('base64').slice(0, 20);
         await runProvision(['set-ssh-password', username, sshPassword]);
-        await firestore.collection('users').doc(userId).update({
-          sshPassword,
-        });
+        await firestore.collection('users').doc(userId).update({ sshPassword });
+        provisionedSSHPassword = sshPassword;
       },
     },
     // ── Step 2: Create public_html ─────────────────────────────────────────────
@@ -204,13 +253,27 @@ async function processJob(jobId, jobData) {
     {
       id: 'finalize',
       run: async () => {
+        const domain = `${username}.${PARENT_DOMAIN}`;
         await firestore.collection('users').doc(userId).update({
           onboardingStatus: 'completed',
           onboardingCompletedAt: new Date(),
           activeJobId: null,
-          subdomain: `${username}.${PARENT_DOMAIN}`,
+          subdomain: domain,
           publicHtmlPath: `/home/inthespace_${username}/public_html`,
         });
+
+        // Send SSH credentials to the user's email
+        const userDoc = await firestore.collection('users').doc(userId).get();
+        const email = userDoc.data()?.email;
+        if (email && provisionedSSHPassword) {
+          try {
+            await sendSSHCredentials(email, username, provisionedSSHPassword, domain);
+            log('INFO', `SSH credentials email sent to ${email}`);
+          } catch (emailErr) {
+            // Non-fatal — provisioning succeeded; just log the failure
+            log('ERROR', `Failed to send SSH credentials email to ${email}: ${emailErr.message}`);
+          }
+        }
       },
     },
   ];
