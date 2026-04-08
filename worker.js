@@ -138,6 +138,17 @@ async function processJob(jobId, jobData) {
       id: 'create_linux_user',
       run: () => runProvision(['create-user', username]),
     },
+    // ── Step 1b: Set SSH password ───────────────────────────────────────────────
+    {
+      id: 'set_ssh_password',
+      run: async () => {
+        const sshPassword = crypto.randomBytes(16).toString('base64').slice(0, 20);
+        await runProvision(['set-ssh-password', username, sshPassword]);
+        await firestore.collection('users').doc(userId).update({
+          sshPassword,
+        });
+      },
+    },
     // ── Step 2: Create public_html ─────────────────────────────────────────────
     {
       id: 'create_public_html',

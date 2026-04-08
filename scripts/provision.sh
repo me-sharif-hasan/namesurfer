@@ -15,6 +15,9 @@
 #   reload-apache
 #   create-mysql-user  <username> <db_name> <db_password>
 #   delete-user        <username>
+#   set-ssh-password   <username> <password>
+#   add-ssh-pubkey     <username> <public_key>
+#   remove-ssh-pubkey  <username>
 
 set -euo pipefail
 
@@ -58,7 +61,7 @@ case "$ACTION" in
     useradd \
       --create-home \
       --home-dir "$HOME_DIR" \
-      --shell /usr/sbin/nologin \
+      --shell /bin/bash \
       --comment "InTheSpace hosting ${RAW_USERNAME}" \
       "$LINUX_USER"
     chmod 750 "$HOME_DIR"
@@ -228,6 +231,46 @@ SQLEOF
     rm -f "/etc/sudoers.d/deny_${LINUX_USER}" 2>/dev/null || true
     rm -f "/etc/security/limits.d/${LINUX_USER}.conf" 2>/dev/null || true
     echo "OK: user $LINUX_USER removed"
+    ;;
+
+  # ── 10. Set SSH password ─────────────────────────────────────────────────────
+  set-ssh-password)
+    SSH_PASSWORD="${3:-}"
+    if [[ -z "$SSH_PASSWORD" ]]; then
+      echo "ERROR: password is required" >&2; exit 1
+    fi
+    # Validate password length
+    if [[ ${#SSH_PASSWORD} -lt 8 ]]; then
+      echo "ERROR: password must be at least 8 characters" >&2; exit 1
+    fi
+    echo "${LINUX_USER}:${SSH_PASSWORD}" | chpasswd
+    echo "OK: SSH password set for $LINUX_USER"
+    ;;
+
+  # ── 11. Add SSH public key ───────────────────────────────────────────────────
+  add-ssh-pubkey)
+    SSH_PUBKEY="${3:-}"
+    if [[ -z "$SSH_PUBKEY" ]]; then
+      echo "ERROR: public key is required" >&2; exit 1
+    fi
+    # Validate it's a valid-looking SSH public key
+    if ! [[ "$SSH_PUBKEY" =~ ^(ssh-rsa|ssh-ed25519|ecdsa-sha2-nistp256|ecdsa-sha2-nistp384|ecdsa-sha2-nistp521)\ + ]]; then
+      echo "ERROR: invalid SSH public key format" >&2; exit 1
+    fi
+    mkdir -p "${HOME_DIR}/.ssh"
+    chmod 700 "${HOME_DIR}/.ssh"
+    # Replace existing authorized_keys with single key (one SSH key per user)
+    echo "$SSH_PUBKEY" > "${HOME_DIR}/.ssh/authorized_keys"
+    chmod 600 "${HOME_DIR}/.ssh/authorized_keys"
+    chown -R "${LINUX_USER}:${LINUX_USER}" "${HOME_DIR}/.ssh"
+    echo "OK: SSH public key installed for $LINUX_USER"
+    ;;
+
+  # ── 12. Remove SSH public key ───────────────────────────────────────────────
+  remove-ssh-pubkey)
+    rm -f "${HOME_DIR}/.ssh/authorized_keys"
+    rmdir "${HOME_DIR}/.ssh" 2>/dev/null || true
+    echo "OK: SSH public key removed for $LINUX_USER"
     ;;
 
   *)
